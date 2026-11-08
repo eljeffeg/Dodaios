@@ -9368,10 +9368,28 @@
       "searching": "Sucht",
       "held": "Wird getragen"
     },
+    "energy_orb": {
+      "title": "Energiekugel",
+      "short": "Kugel",
+      "body": "Eine glatte Kugel aus fließendem Licht. Jeder Zustand hat ein eigenes Muster, gezeichnet von einem Shader, deshalb bleibt es in jeder Größe scharf.",
+      "states_label": "Zustand"
+    },
     "shader_note": "Dieser Shader läuft auf dem Desktop, hier und bei einem Begleiter in der Verse.",
     "cube_cat": {
       "title": "Würfelkatze",
-      "short": "Katze"
+      "short": "Katze",
+      "body": "Eine blockige Katze, die auf der Stelle läuft, damit ein lebendiges 3D-Haustier neben den Pixel-Haustieren ausprobiert werden kann.",
+      "clips_label": "Animation",
+      "clips": {
+        "run": "Rennen",
+        "walk": "Gehen",
+        "idle": "Ruhe",
+        "static": "Still",
+        "eat": "Fressen",
+        "dance": "Tanzen",
+        "gesture-positive": "Ja",
+        "gesture-negative": "Nein"
+      }
     },
     "builtin": {
       "gigi": {

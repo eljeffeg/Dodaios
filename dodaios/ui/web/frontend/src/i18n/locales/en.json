@@ -9368,10 +9368,28 @@
       "searching": "Searching",
       "held": "Being carried"
     },
+    "energy_orb": {
+      "title": "Energy orb",
+      "short": "Orb",
+      "body": "A smooth orb of flowing light. Each pet state is its own pattern, drawn by a shader so it stays sharp at any size.",
+      "states_label": "State"
+    },
     "shader_note": "This shader plays on the desktop, here, and on a companion in the Verse.",
     "cube_cat": {
       "title": "Cube cat",
-      "short": "Cat"
+      "short": "Cat",
+      "body": "A blocky cat that runs in place, so a live 3D pet can be tried next to the pixel ones.",
+      "clips_label": "Animation",
+      "clips": {
+        "run": "Run",
+        "walk": "Walk",
+        "idle": "Idle",
+        "static": "Still",
+        "eat": "Eat",
+        "dance": "Dance",
+        "gesture-positive": "Yes",
+        "gesture-negative": "No"
+      }
     },
     "builtin": {
       "gigi": {
@@ -9430,7 +9448,7 @@
       "manifest_choose": "Add pet.json",
       "manifest_remove": "Remove",
       "shader_label": "Fragment shader",
-      "shader_hint": "A .frag or .glsl file, up to 16 KB. Write gl_FragColor. uTime, uState (0 to 9), uStateFrom, uBlend and uLevel (voice, 0 to 1) are already declared.",
+      "shader_hint": "A .frag or .glsl file, up to 16 KB. Write gl_FragColor. uTime, uState, uStateFrom, uBlend and uLevel are already declared. uState is 0 to 9, in pet-state order, and a change mixes the two looks. uLevel is 0 to 1: the assistant's voice while talking, the microphone while listening, and 0 otherwise.",
       "shader_choose": "Choose shader",
       "shader_change": "Choose another",
       "shader_type": "Choose a .frag or .glsl file.",

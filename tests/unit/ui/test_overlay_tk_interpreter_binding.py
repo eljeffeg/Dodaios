@@ -105,11 +105,6 @@ def test_mascot_frame_binds_photo_to_its_overlay_root(monkeypatch) -> None:
     mascot._mac_transparent = False
     mascot._image_id = None
     mascot._photo = None
-    # The frame tick also settles the shader figure. This double is a sprite.
-    mascot._style = "mascot"
-    mascot._shader_host = None
-    mascot._user_hidden = False
-    mascot._figure_passthrough = False
 
     mascot._schedule_frame()
 
@@ -122,8 +117,6 @@ def test_mascot_bubble_binds_named_fonts_to_its_toplevel(monkeypatch) -> None:
     from ui.orb import overlay as orb_mod
 
     class _Top:
-        def title(self, _name: str) -> None: ...
-
         def overrideredirect(self, _enabled: bool) -> None: ...
 
         def wm_attributes(self, *_args: object) -> None: ...

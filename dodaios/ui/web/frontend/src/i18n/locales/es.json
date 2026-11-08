@@ -9368,10 +9368,28 @@
       "searching": "Buscando",
       "held": "En brazos"
     },
+    "energy_orb": {
+      "title": "Orbe de energía",
+      "short": "Orbe",
+      "body": "Un orbe suave de luz que fluye. Cada estado tiene su propio patrón, dibujado por un sombreador, así que se mantiene nítido a cualquier tamaño.",
+      "states_label": "Estado"
+    },
     "shader_note": "Este shader se ve en el escritorio, aquí y en un compañero del Verse.",
     "cube_cat": {
       "title": "Gato de cubos",
-      "short": "Gato"
+      "short": "Gato",
+      "body": "Un gato de bloques que corre en el sitio, para probar una mascota 3D viva junto a las de píxeles.",
+      "clips_label": "Animación",
+      "clips": {
+        "run": "Correr",
+        "walk": "Caminar",
+        "idle": "Quieto",
+        "static": "Fijo",
+        "eat": "Comer",
+        "dance": "Bailar",
+        "gesture-positive": "Sí",
+        "gesture-negative": "No"
+      }
     },
     "builtin": {
       "gigi": {
