@@ -6,6 +6,7 @@
  * The bans mirror `dodaios/ui/pets/shader.py`. The server is the authority
  * on save; this check is what the create dialog can say before the upload.
  */
+import { releaseWebglContext } from "@/hooks/useWebglSurface";
 import { PET_STATES, type PetState } from "@/lib/petStates";
 import { readVoiceInputLevel } from "@/lib/voiceInputLevel";
 import { voiceOutputLevelRef } from "@/lib/voiceOutputLevel";
@@ -141,21 +142,26 @@ export function compilePetShader(source: string): string | null {
   const canvas = document.createElement("canvas");
   const gl = canvas.getContext("webgl");
   if (!gl) return null;
-  const fragment = gl.createShader(gl.FRAGMENT_SHADER);
-  const vertex = gl.createShader(gl.VERTEX_SHADER);
-  if (!fragment || !vertex) return null;
-  gl.shaderSource(fragment, `precision mediump float;\n${wrapPetFragment(source)}`);
-  gl.shaderSource(vertex, COMPILE_VERTEX);
-  gl.compileShader(fragment);
-  gl.compileShader(vertex);
-  const fragmentOk = gl.getShaderParameter(fragment, gl.COMPILE_STATUS);
-  const vertexOk = gl.getShaderParameter(vertex, gl.COMPILE_STATUS);
-  const log = !fragmentOk
-    ? gl.getShaderInfoLog(fragment)
-    : !vertexOk
-      ? gl.getShaderInfoLog(vertex)
-      : null;
-  gl.deleteShader(fragment);
-  gl.deleteShader(vertex);
-  return log && log.trim() ? log.trim() : fragmentOk && vertexOk ? null : "The shader did not compile.";
+  try {
+    const fragment = gl.createShader(gl.FRAGMENT_SHADER);
+    const vertex = gl.createShader(gl.VERTEX_SHADER);
+    if (!fragment || !vertex) return null;
+    gl.shaderSource(fragment, `precision mediump float;\n${wrapPetFragment(source)}`);
+    gl.shaderSource(vertex, COMPILE_VERTEX);
+    gl.compileShader(fragment);
+    gl.compileShader(vertex);
+    const fragmentOk = gl.getShaderParameter(fragment, gl.COMPILE_STATUS);
+    const vertexOk = gl.getShaderParameter(vertex, gl.COMPILE_STATUS);
+    const log = !fragmentOk
+      ? gl.getShaderInfoLog(fragment)
+      : !vertexOk
+        ? gl.getShaderInfoLog(vertex)
+        : null;
+    gl.deleteShader(fragment);
+    gl.deleteShader(vertex);
+    return log && log.trim() ? log.trim() : fragmentOk && vertexOk ? null : "The shader did not compile.";
+  } finally {
+    // dispose() does not exist on a raw context; loseContext hands the slot back.
+    releaseWebglContext(canvas);
+  }
 }
