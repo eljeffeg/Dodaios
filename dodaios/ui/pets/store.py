@@ -30,12 +30,14 @@ from dodaios.ui.pets.manifest import (
     check_sheet_size,
     parse_manifest,
 )
+from dodaios.ui.pets.shader import SHADER_FILE, check_shader_source
 from dodaios.ui.pets.states import (
     FRAME_SIZES,
     MAX_FRAMES_PER_STATE,
     ONE_SHOT_STATES,
     PET_FORMAT,
     PET_STATES,
+    SHADER_PET_FORMAT,
 )
 
 _log = logging.getLogger(__name__)
@@ -148,6 +150,27 @@ class PetStore:
         self._write(manifest, sheet)
         return manifest
 
+    def add_shader(self, *, source: str, name: str, description: str) -> PetManifest:
+        """Validate a fragment shader, store it as a new pet and return its manifest."""
+        if self.count() >= MAX_USER_PETS:
+            raise PetManifestError(
+                f"You already have {MAX_USER_PETS} pets. Delete one to add another."
+            )
+        check_shader_source(source)
+        pet_id = "u" + secrets.token_hex(8)
+        data = {
+            "format": SHADER_PET_FORMAT,
+            "id": pet_id,
+            "shader": SHADER_FILE,
+        }
+        if isinstance(name, str) and name.strip():
+            data["name"] = name
+        if isinstance(description, str) and description.strip():
+            data["description"] = description
+        manifest = parse_manifest(data, builtin=False)
+        self._write_shader(manifest, source)
+        return manifest
+
     def delete(self, pet_id: str) -> bool:
         """Remove a user pet. Only ``u…`` ids; never touches anything outside the root."""
         if not isinstance(pet_id, str) or not USER_ID_RE.match(pet_id):
@@ -205,6 +228,20 @@ class PetStore:
             _write_atomic(staging / SHEET_NAME, _encode_png(sheet))
             text = json.dumps(manifest.to_json(), indent=2, ensure_ascii=False) + "\n"
             _write_atomic(staging / MANIFEST_NAME, text.encode("utf-8"))
+            _replace_with_retry(staging, self.root / manifest.id)
+        except OSError as exc:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise PetManifestError("The pet could not be saved.") from exc
+
+    def _write_shader(self, manifest: PetManifest, source: str) -> None:
+        self.root.mkdir(parents=True, exist_ok=True)
+        self._sweep_stale_staging()
+        staging = Path(tempfile.mkdtemp(prefix=_STAGING_PREFIX, dir=self.root))
+        try:
+            text = source.replace("\r\n", "\n").replace("\r", "\n")
+            _write_atomic(staging / SHADER_FILE, text.encode("utf-8"))
+            body = json.dumps(manifest.to_json(), indent=2, ensure_ascii=False) + "\n"
+            _write_atomic(staging / MANIFEST_NAME, body.encode("utf-8"))
             _replace_with_retry(staging, self.root / manifest.id)
         except OSError as exc:
             shutil.rmtree(staging, ignore_errors=True)

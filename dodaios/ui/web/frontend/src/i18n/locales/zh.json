@@ -9317,8 +9317,8 @@
   },
   "pets": {
     "title": "我的宠物",
-    "subtitle": "一个漂浮在桌面上的像素小伙伴，会随着 {name} 倾听、思考和说话做出反应。按 {0} 可隐藏或显示它。",
-    "subtitle_no_shortcut": "一个漂浮在桌面上的像素小伙伴，会随着 {name} 倾听、思考和说话做出反应。在“自定义”中设置快捷键即可隐藏或显示它。",
+    "subtitle": "一个漂浮在桌面上的小伙伴，会随着 {name} 倾听、思考和说话做出反应。按 {0} 可隐藏或显示它。",
+    "subtitle_no_shortcut": "一个漂浮在桌面上的小伙伴，会随着 {name} 倾听、思考和说话做出反应。在“自定义”中设置快捷键即可隐藏或显示它。",
     "hide": "隐藏宠物",
     "show": "显示宠物",
     "open_settings": "选择你的宠物",
@@ -9342,6 +9342,11 @@
     "shortcut_hint": "隐藏宠物，或把它带回最前面。",
     "my_pets": "我的宠物",
     "create": "创建宠物",
+    "filter_label": "显示",
+    "filter_all": "全部",
+    "filter_pixel": "像素",
+    "filter_shader": "着色器",
+    "filter_model": "模型",
     "created": "{0} 已准备好。",
     "none_name": "无",
     "none_description": "只显示控制条",
@@ -9362,6 +9367,29 @@
       "working": "工作中",
       "searching": "搜索中",
       "held": "被拎着"
+    },
+    "energy_orb": {
+      "title": "能量光球",
+      "short": "光球",
+      "body": "一颗平滑流动的光球。每种状态各有一种图案，由着色器绘制，任何大小都保持清晰。",
+      "states_label": "状态"
+    },
+    "shader_note": "这段着色器会在桌面、这里以及 Verse 里的同伴身上播放。",
+    "cube_cat": {
+      "title": "方块猫",
+      "short": "猫",
+      "body": "一只在原地奔跑的方块猫，用来在像素宠物旁边试一只会动的立体宠物。",
+      "clips_label": "动画",
+      "clips": {
+        "run": "奔跑",
+        "walk": "行走",
+        "idle": "待机",
+        "static": "静止",
+        "eat": "吃",
+        "dance": "跳舞",
+        "gesture-positive": "赞同",
+        "gesture-negative": "反对"
+      }
     },
     "builtin": {
       "gigi": {
@@ -9390,11 +9418,17 @@
       },
       "dodaios": {
         "description": "标志里的兜帽小人：倾听时帽尖竖起，跳跃时披风飞扬。"
+      },
+      "energy-wave": {
+        "description": "随声音加快的光波。"
+      },
+      "cube-cat": {
+        "description": "一只方块猫，在原地奔跑。"
       }
     },
     "create_dialog": {
       "title": "创建宠物",
-      "description": "上传一张精灵图，给你的宠物起个名字，它就会加入你的宠物列表。",
+      "description": "上传一张精灵图或一段片元着色器，给你的宠物起个名字，它就会加入你的宠物列表。",
       "name_label": "名称",
       "name_placeholder": "例如：Pixel",
       "description_label": "描述",
@@ -9413,8 +9447,13 @@
       "manifest_hint": "pet.json 可设置每一行的帧、速度和循环方式。没有它时，按上述顺序读取各行，并自动计算每行的帧数。",
       "manifest_choose": "添加 pet.json",
       "manifest_remove": "移除",
+      "shader_label": "片元着色器",
+      "shader_hint": ".frag 或 .glsl 文件，不超过 16 KB。写入 gl_FragColor。uTime、uState、uStateFrom、uBlend 和 uLevel 已经声明。uState 为 0 到 9，按宠物状态顺序，切换时会把两种样子混在一起。uLevel 为 0 到 1：说话时是助手的声音，聆听时是麦克风，其他时候为 0。",
+      "shader_choose": "选择着色器",
+      "shader_change": "另选一个",
+      "shader_type": "请选择 .frag 或 .glsl 文件。",
       "error_name": "给你的宠物起个名字。",
-      "error_no_sheet": "请选择一张精灵图。",
+      "error_no_sheet": "请选择一张精灵图或一段着色器。",
       "error_not_png": "请选择 PNG 图片。",
       "error_too_big": "这张图片超过 2 MB。",
       "error_manifest": "清单文件必须是 .json 文件。",

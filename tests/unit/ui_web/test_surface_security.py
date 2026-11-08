@@ -217,6 +217,31 @@ def test_duplicate_origin_headers_are_rejected_as_ambiguous() -> None:
     assert inner.scopes == []
 
 
+def test_vite_loopback_alias_is_trusted() -> None:
+    client, inner = _client()
+
+    response = client.get(
+        "/api/config",
+        headers=_headers(token=_CONTROL_KEY, origin="http://127.0.0.1:5173"),
+    )
+
+    assert response.status_code == 200
+    assert len(inner.scopes) == 1
+
+
+def test_a_different_loopback_port_stays_untrusted() -> None:
+    client, inner = _client()
+
+    response = client.get(
+        "/api/config",
+        headers=_headers(token=_CONTROL_KEY, origin="http://127.0.0.1:9999"),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Untrusted Origin header."
+    assert inner.scopes == []
+
+
 def test_exact_vite_origin_is_allowed_with_valid_credentials() -> None:
     client, inner = _client()
 

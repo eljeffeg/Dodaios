@@ -17,8 +17,8 @@ export type PetGait = "fly" | "float" | "walk" | "waddle" | "hop" | "bounce" | "
 
 export interface CompanionPet {
   id: string;
-  /** Gigi keeps its own hover model; built-ins load their GLB; drawn pets become voxels. */
-  kind: "gigi" | "model" | "voxel";
+  /** Gigi keeps its own hover model; built-ins load their GLB; drawn pets become voxels; the orb is a shader. */
+  kind: "gigi" | "model" | "voxel" | "clip" | "shader";
   gait: PetGait;
   /** Height of the companion in the office, metres (the toy figures are 1.3 m). */
   heightM: number;
@@ -30,6 +30,8 @@ export interface CompanionPet {
   sheetUrl?: string;
   frameSize?: number;
   idle?: { row: number; frames: number; fps: number };
+  /** A shader pet: the fragment source the pack saved. */
+  shaderUrl?: string;
 }
 
 type BuiltinSpec = Omit<CompanionPet, "id" | "sheetUrl" | "frameSize" | "idle">;
@@ -51,11 +53,23 @@ export const BUILTIN_COMPANIONS: Readonly<Record<string, BuiltinSpec>> = {
 /** A drawn pet floats at this height (its voxel figure), metres. */
 export const VOXEL_HEIGHT_M = 0.42;
 
+/**
+ * The Kenney cube cat. Its GLB carries the clips; `CubeCatModel` plays them.
+ * It stands on the floor and walks, the same height as the other desk pets.
+ */
+export const CUBE_CAT: CompanionPet = {
+  id: "cube-cat", kind: "clip", gait: "walk", heightM: 0.46, modelHeightM: 1, strideM: 0.4,
+};
+
 /** The companion for the pet the app draws as Jarvis (`pickActivePet`); null means Gigi. */
 export function companionFor(pet: Pet | null | undefined): CompanionPet {
   if (!pet || pet.id === GIGI_COMPANION.id) return GIGI_COMPANION;
+  if (pet.id === CUBE_CAT.id) return CUBE_CAT;
   const builtin = pet.builtin ? BUILTIN_COMPANIONS[pet.id] : undefined;
   if (builtin) return { id: pet.id, ...builtin };
+  if (pet.kind === "shader" && pet.shader_url) {
+    return { id: pet.id, kind: "shader", gait: "float", heightM: 0.36, modelHeightM: 0.36, strideM: 1, shaderUrl: pet.shader_url };
+  }
   const idle = pet.animations?.idle;
   if (!pet.sheet_url || !idle || !(pet.frame_size > 0)) return GIGI_COMPANION;
   return {

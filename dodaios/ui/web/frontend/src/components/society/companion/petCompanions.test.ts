@@ -41,6 +41,16 @@ describe("companionFor", () => {
     expect(companionFlies(companion)).toBe(true);
   });
 
+  it("keeps the energy orb and the cube cat instead of Gigi", () => {
+    expect(companionFor(pet({
+      id: "energy-wave", builtin: true, kind: "shader", frame_size: 0, sheet_url: "",
+      shader_url: "/api/pets/energy-wave/shader.frag", animations: {},
+    }))).toMatchObject({ kind: "shader", shaderUrl: "/api/pets/energy-wave/shader.frag", gait: "float" });
+    expect(companionFor(pet({
+      id: "cube-cat", builtin: true, kind: "model", frame_size: 0, sheet_url: "", animations: {},
+    })).kind).toBe("clip");
+  });
+
   it("falls back to Gigi for a drawn pet without a usable idle row", () => {
     expect(companionFor(pet({ id: "u0123456789abcdef", animations: {} }))).toBe(GIGI_COMPANION);
   });

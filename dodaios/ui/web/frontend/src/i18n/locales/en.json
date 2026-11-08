@@ -9317,8 +9317,8 @@
   },
   "pets": {
     "title": "My Pets",
-    "subtitle": "A small pixel companion that floats on your desktop and reacts as {name} listens, thinks and talks. Press {0} to hide or show it.",
-    "subtitle_no_shortcut": "A small pixel companion that floats on your desktop and reacts as {name} listens, thinks and talks. Set a shortcut under Customize to hide or show it.",
+    "subtitle": "A small companion that floats on your desktop and reacts as {name} listens, thinks and talks. Press {0} to hide or show it.",
+    "subtitle_no_shortcut": "A small companion that floats on your desktop and reacts as {name} listens, thinks and talks. Set a shortcut under Customize to hide or show it.",
     "hide": "Hide pet",
     "show": "Show pet",
     "open_settings": "Choose your pet",
@@ -9342,6 +9342,11 @@
     "shortcut_hint": "Hides the pet, or brings it back to the front.",
     "my_pets": "My pets",
     "create": "Create pet",
+    "filter_label": "Show",
+    "filter_all": "All",
+    "filter_pixel": "Pixels",
+    "filter_shader": "Shaders",
+    "filter_model": "Models",
     "created": "{0} is ready.",
     "none_name": "None",
     "none_description": "Just the control strip",
@@ -9362,6 +9367,29 @@
       "working": "Working",
       "searching": "Searching",
       "held": "Being carried"
+    },
+    "energy_orb": {
+      "title": "Energy orb",
+      "short": "Orb",
+      "body": "A smooth orb of flowing light. Each pet state is its own pattern, drawn by a shader so it stays sharp at any size.",
+      "states_label": "State"
+    },
+    "shader_note": "This shader plays on the desktop, here, and on a companion in the Verse.",
+    "cube_cat": {
+      "title": "Cube cat",
+      "short": "Cat",
+      "body": "A blocky cat that runs in place, so a live 3D pet can be tried next to the pixel ones.",
+      "clips_label": "Animation",
+      "clips": {
+        "run": "Run",
+        "walk": "Walk",
+        "idle": "Idle",
+        "static": "Still",
+        "eat": "Eat",
+        "dance": "Dance",
+        "gesture-positive": "Yes",
+        "gesture-negative": "No"
+      }
     },
     "builtin": {
       "gigi": {
@@ -9390,11 +9418,17 @@
       },
       "dodaios": {
         "description": "The hooded figure of the logo: the hood's tip perks up to listen, the cape flies on a hop."
+      },
+      "energy-wave": {
+        "description": "Waves of light that speed up with the voice."
+      },
+      "cube-cat": {
+        "description": "A blocky cat that runs in place."
       }
     },
     "create_dialog": {
       "title": "Create pet",
-      "description": "Upload a sprite sheet, give your pet a name, and it joins your pets.",
+      "description": "Upload a sprite sheet or a fragment shader, give your pet a name, and it joins your pets.",
       "name_label": "Name",
       "name_placeholder": "For example: Pixel",
       "description_label": "Description",
@@ -9413,8 +9447,13 @@
       "manifest_hint": "A pet.json sets each row's frames, speed and looping. Without one, the rows are read in the order above and the frames of each row are counted.",
       "manifest_choose": "Add pet.json",
       "manifest_remove": "Remove",
+      "shader_label": "Fragment shader",
+      "shader_hint": "A .frag or .glsl file, up to 16 KB. Write gl_FragColor. uTime, uState, uStateFrom, uBlend and uLevel are already declared. uState is 0 to 9, in pet-state order, and a change mixes the two looks. uLevel is 0 to 1: the assistant's voice while talking, the microphone while listening, and 0 otherwise.",
+      "shader_choose": "Choose shader",
+      "shader_change": "Choose another",
+      "shader_type": "Choose a .frag or .glsl file.",
       "error_name": "Give your pet a name.",
-      "error_no_sheet": "Choose a sprite sheet.",
+      "error_no_sheet": "Choose a sprite sheet or a shader.",
       "error_not_png": "Choose a PNG image.",
       "error_too_big": "This image is larger than 2 MB.",
       "error_manifest": "The manifest must be a .json file.",

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
@@ -103,6 +104,10 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     builtin = tmp_path / "builtin"
     _write_builtin(builtin, DEFAULT_PET_ID)
     _write_builtin(builtin, "miso")
+    shutil.copytree(
+        Path(__file__).resolve().parents[3] / "dodaios/ui/pets/builtin/energy-wave",
+        builtin / "energy-wave",
+    )
     monkeypatch.setattr(loader, "builtin_root", lambda: builtin)
     data = tmp_path / "data"
     data.mkdir()
@@ -157,8 +162,20 @@ def test_list_returns_state_and_every_pet(env) -> None:
     # Every state is resolved, so no client repeats the fallback table.
     assert set(gigi["animations"]) == set(PET_STATES)
     assert gigi["animations"]["sleeping"] == gigi["animations"]["idle"]
+    assert gigi["kind"] == "sprite"
+    assert gigi["shader_url"] == ""
+    # The orb is a built-in shader pack. The cube cat has no folder.
+    assert ids.index("energy-wave") < ids.index("cube-cat")
+    orb = body["pets"][ids.index("energy-wave")]
+    assert orb["kind"] == "shader"
+    assert orb["builtin"] is True
+    assert orb["sheet_url"] == ""
+    assert orb["shader_url"] == "/api/pets/energy-wave/shader.frag"
+    cat = body["pets"][ids.index("cube-cat")]
+    assert cat["kind"] == "model"
     assert set(gigi) == {
-        "id", "name", "description", "builtin", "frame_size", "animations", "sheet_url"
+        "id", "name", "description", "builtin", "kind", "frame_size",
+        "animations", "sheet_url", "shader_url",
     }
 
 
@@ -214,6 +231,14 @@ def test_put_active_saves_applies_and_announces(env) -> None:
     (event,) = env.app.state.bus.events
     assert isinstance(event, PetChanged)
     assert (event.pet_id, event.scale, event.bubble, event.visible) == ("miso", 1.0, True, True)
+
+
+def test_put_active_accepts_the_orb_and_the_cube_cat(env) -> None:
+    for pet_id in ("energy-wave", "cube-cat"):
+        r = env.client.put("/api/pets/active", json={"pet_id": pet_id})
+        assert r.status_code == 200, r.text
+        assert r.json()["active"] == pet_id
+        assert env.client.get("/api/pets").json()["active"] == pet_id
 
 
 def test_put_active_accepts_none(env) -> None:
@@ -361,6 +386,35 @@ def test_upload_refusals_are_400_with_a_sentence(env, sheet: bytes) -> None:
 
 def test_upload_rejects_a_frame_size_that_is_not_a_number(env) -> None:
     assert _upload(env, frame_size="big").status_code == 400
+
+
+def test_upload_a_shader_pet_and_serve_its_source(env) -> None:
+    source = "void main() { gl_FragColor = vec4(uTime, uState, uBlend, 1.0); }\n"
+    created = env.client.post(
+        "/api/pets",
+        files={"shader": ("orb.frag", source, "text/plain")},
+        data={"name": "Tide", "description": "Rings."},
+    )
+    assert created.status_code == 201, created.text
+    pet = created.json()
+    assert pet["kind"] == "shader"
+    assert pet["sheet_url"] == ""
+    assert pet["animations"] == {}
+    body = env.client.get(pet["shader_url"])
+    assert body.status_code == 200
+    assert "gl_FragColor" in body.text
+    assert env.client.get(f"/api/pets/{pet['id']}/sheet.png").status_code == 404
+
+
+def test_upload_rejects_a_shader_with_a_sampler(env) -> None:
+    source = "void main() { sampler2D tex; gl_FragColor = vec4(1.0); }\n"
+    created = env.client.post(
+        "/api/pets",
+        files={"shader": ("orb.frag", source, "text/plain")},
+        data={"name": "Tide", "description": ""},
+    )
+    assert created.status_code == 400
+    assert "sampler" in created.json()["detail"]
 
 
 def test_a_body_declared_too_large_is_refused_before_parsing(env) -> None:

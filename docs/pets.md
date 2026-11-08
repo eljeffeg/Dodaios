@@ -305,13 +305,69 @@ committed PNGs match the script). User-created pets live in
 | `flick` | Flick | An original house elf: huge ears shoot up to listen and droop on errors, scrubs while working, sleeps under its ears |
 | `aurelia` | Aurelia | An original princess in an emerald gown: tilts her head to listen, writes letters with a quill, twirls on success |
 
+## Shader format `jarvis-shader-pet/1`
+
+A shader pet is a folder with a fragment file instead of a sprite sheet.
+The Energy Orb ships as one: `dodaios/ui/pets/builtin/energy-wave/`. Replace
+`shader.frag` there to change that pet. An uploaded shader is the same
+two files under the user's pet folder.
+
+```text
+<pet-id>/
+  pet.json
+  shader.frag
+```
+
+```json
+{
+  "format": "jarvis-shader-pet/1",
+  "id": "u0123456789abcdef",
+  "name": "Tide",
+  "description": "A slow ringed orb.",
+  "shader": "shader.frag"
+}
+```
+
+The app owns the sphere, the vertex shader and the uniforms. The file is
+helpers plus `void main`, and it writes `gl_FragColor`. It can read
+`uTime` (seconds), `uState` and `uStateFrom` (0–9, in `PET_STATES` order),
+`uBlend` (0 at the start of a change, 1 when the new state has arrived)
+and `uLevel` (0–1). `uLevel` is the assistant's voice while the pet is
+talking and the microphone while it is listening. Every other state sends
+0, so a leftover sample does not keep moving the pet. `vLocal`, `vNormal`
+and `vView` are the sphere varyings. The file must not declare uniforms,
+varyings, samplers or precision, and it
+must not use `#include`, `#version`, `#extension`, `#define` or `#pragma`.
+
+A state change draws the shader twice, once at `uStateFrom` and once at
+`uState`, and mixes the two colours over about a third of a second. A
+shader that only branches on `uState` still flows. Reduced motion snaps
+to the new state in My Pets and on a worn companion.
+
+The desktop figure is a separate window, not the Tk sprite surface. On
+macOS it is a Qt window painted with real alpha, the same way the Jarvis
+Bar is: fully clear pixels are not part of the window. On Windows the
+same image goes through `UpdateLayeredWindow`, so the glow is real alpha
+and a clear pixel is the desktop and does not take the click. The sprite
+loader still has no frames for a shader. The pet renderer reads the
+fragment itself and does not substitute the default pixel pet. If PySide6
+cannot start, the figure stays clear and the control strip remains.
+
+The source is at most 16 KB of UTF-8. A `while` is rejected. A `for` may
+only count a fixed number of times, at most 32, written as
+`for (int i = 0; i < 8; i++)`. The create dialog compiles the shader when
+the browser has WebGL; the server repeats the text checks and does not
+compile.
+
 ## Adding a pet
 
 - **As a user:** Settings → My Pets → Create pet. Upload a sheet in the
-  layout above (a template PNG is offered for download), add a name and a
-  one-sentence description, optionally a `pet.json`. Without a manifest the
+  layout above (a template PNG is offered for download), or a `.frag` /
+  `.glsl` fragment shader, add a name and a one-sentence description,
+  optionally a `pet.json` for a sprite. Without a sprite manifest the
   rows are read in `PET_STATES` order and the frame count per row is the
-  number of non-empty cells.
+  number of non-empty cells. A shader upload writes `shader.frag` and its
+  own manifest; the file's own name is ignored.
 - **As a developer:** add a builder to `scripts/pets/build_pets.py`, run it,
   and commit the generated folder. The parity and completeness tests require
   every built-in pet to provide all ten states.
@@ -373,13 +429,14 @@ Control-strip actions: `bell` (handled in the surface, reported through
 
 | Method and path | Body / result |
 |---|---|
-| `GET /api/pets` | `{active, scale, bubble, visible, pets: [{id, name, description, builtin, frame_size, animations, sheet_url}]}` |
-| `GET /api/pets/{id}/sheet.png` | The sprite sheet |
+| `GET /api/pets` | `{active, scale, bubble, visible, pets: [{id, name, description, builtin, kind, frame_size, animations, sheet_url, shader_url}]}`. `kind` is `sprite`, `shader` or `model`. `energy-wave` is the built-in shader pack (`builtin/energy-wave`). `cube-cat` is built in and has no folder. Selecting either is saved the same way. The desktop figure draws a shader pet, including the orb. The cube cat is shown on this page and in the Verse; the desktop window stays the strip, because that process does not load the model |
+| `GET /api/pets/{id}/sheet.png` | The sprite sheet. A shader pet answers 404 |
+| `GET /api/pets/{id}/shader.frag` | A shader pet's fragment source (`text/plain`). A sprite answers 404 |
 | `GET /api/pets/template.png` | The empty sprite-sheet template (48 px cells, rows in state order) |
 | `PUT /api/pets/active` | `{pet_id}` → saves `[ui] pet_id`, applies live |
 | `PUT /api/pets/settings` | `{scale?, bubble?, strip_always?, preview?}` → applies live, then saves; `preview: true` (a size-slider drag step) only applies live, writes nothing and sends no `PetChanged` |
 | `POST /api/pets/visibility` | `{visible}` → runtime only |
-| `POST /api/pets` | multipart: `sheet` (PNG), `name`, `description`, optional `manifest` (JSON), optional `frame_size` → the new pet |
+| `POST /api/pets` | multipart: `sheet` (PNG) or `shader` (fragment text), `name`, `description`, optional `manifest` (JSON, sprites), optional `frame_size` → the new pet |
 | `DELETE /api/pets/{id}` | user-created pets only |
 
 ## Performance budget
