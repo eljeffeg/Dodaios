@@ -6,11 +6,12 @@ Endpoints (mounted by the WebServer in ``_build_app()``):
                                          and every pet (built-in + user-created).
     GET    /api/pets/template.png      → the blank sprite-sheet template.
     GET    /api/pets/{id}/sheet.png    → a pet's sprite sheet.
+    GET    /api/pets/{id}/shader.frag  → a shader pet's fragment source.
     PUT    /api/pets/active            → pick the active pet (or "none"); saved
                                          to ``[ui] pet_id`` and applied live.
     PUT    /api/pets/settings          → size, status bubble, always-on strip; saved, applied.
     POST   /api/pets/visibility        → hide / show the pet (this run only).
-    POST   /api/pets                   → create a pet from an uploaded sheet.
+    POST   /api/pets                   → create a pet from an uploaded sheet or shader.
     DELETE /api/pets/{id}              → delete a user-created pet.
 
 Under the CLI-first contract every action here is also a
@@ -217,9 +218,36 @@ def _refuse_on_secondary_instance() -> None:
         )
 
 
+def _showcase_pets() -> list[dict[str, Any]]:
+    """Built-in pets that are not a folder. The cube cat is the one left.
+
+    A sprite or shader pet is a directory. The cat is a model the page draws
+    from a shipped GLB, so the list and ``PUT /active`` have to know it
+    without ``find_pet_dir``.
+    """
+    def one(**fields: Any) -> dict[str, Any]:
+        return {
+            "builtin": True,
+            "frame_size": 0,
+            "animations": {},
+            "sheet_url": "",
+            "shader_url": "",
+            **fields,
+        }
+
+    return [
+        one(
+            id="cube-cat",
+            name="Cube Cat",
+            description="A blocky cat that runs in place.",
+            kind="model",
+        ),
+    ]
+
+
 def _pet_exists(pet_id: str) -> bool:
-    """``none`` always exists; any other id must be a pet folder on disk."""
-    if pet_id == NO_PET_ID:
+    """``none``, a folder, and the cube cat exist."""
+    if pet_id == NO_PET_ID or any(pet["id"] == pet_id for pet in _showcase_pets()):
         return True
     from dodaios.ui.pets import loader
 
@@ -231,8 +259,20 @@ def _pet_json(manifest: Any) -> dict[str, Any]:
 
     ``animations`` is resolved for EVERY state (a state the manifest leaves
     out already carries its fallback's row), so no client has to repeat the
-    fallback table.
+    fallback table. A shader pet has no rows: the fragment source is the picture.
     """
+    if getattr(manifest, "kind", "sprite") == "shader":
+        return {
+            "id": manifest.id,
+            "name": manifest.name,
+            "description": manifest.description,
+            "builtin": bool(manifest.builtin),
+            "kind": "shader",
+            "frame_size": 0,
+            "animations": {},
+            "sheet_url": "",
+            "shader_url": f"/api/pets/{manifest.id}/shader.frag",
+        }
     animations: dict[str, dict[str, Any]] = {}
     for state in PET_STATES:
         _resolved, spec = manifest.spec_for(state)
@@ -250,9 +290,11 @@ def _pet_json(manifest: Any) -> dict[str, Any]:
         "name": manifest.name,
         "description": manifest.description,
         "builtin": bool(manifest.builtin),
+        "kind": "sprite",
         "frame_size": manifest.frame_size,
         "animations": animations,
         "sheet_url": f"/api/pets/{manifest.id}/sheet.png",
+        "shader_url": "",
     }
 
 
@@ -317,12 +359,20 @@ def list_pets(request: Request) -> dict[str, Any]:
     from dodaios.ui.pets import loader
 
     manifests = loader.list_pets()
-    known = {m.id for m in manifests}
+    showcase = _showcase_pets()
+    known = {m.id for m in manifests} | {pet["id"] for pet in showcase}
     configured = _configured_pet_id(request)
     # An id whose folder is gone (a deleted or broken pet) shows the default
     # pet on screen, so the page must say the same.
     active = configured if configured == NO_PET_ID or configured in known else DEFAULT_PET_ID
-    return {**_state(request, active), "pets": [_pet_json(m) for m in manifests]}
+    pets = [_pet_json(m) for m in manifests]
+    # After the other built-ins, before pets the person uploaded.
+    index = next((i for i, pet in enumerate(pets) if not pet["builtin"]), len(pets))
+    have = {pet["id"] for pet in pets}
+    for extra in reversed(showcase):
+        if extra["id"] not in have:
+            pets.insert(index, extra)
+    return {**_state(request, active), "pets": pets}
 
 
 #: The blank sprite-sheet template "Create pet" offers for download: seven
@@ -364,9 +414,37 @@ def pet_sheet(pet_id: str) -> FileResponse:
     except PetManifestError as exc:
         log.warning("pet %r sheet not served: %s", normalized, exc)
         raise HTTPException(status_code=404, detail="Unknown pet.") from exc
+    if manifest.kind == "shader":
+        raise HTTPException(status_code=404, detail="This pet is a shader.")
     return FileResponse(
         str(folder / manifest.sheet),
         media_type="image/png",
+        headers={**_NOSNIFF, **(_REVALIDATE_CACHE if builtin else _IMMUTABLE_CACHE)},
+    )
+
+
+@router.get("/{pet_id}/shader.frag", response_model=None)
+def pet_shader(pet_id: str) -> FileResponse:
+    """A shader pet's fragment source. Sprite pets have none."""
+    from dodaios.ui.pets import loader
+    from dodaios.ui.pets.manifest import PetManifestError
+    from dodaios.ui.pets.shader import SHADER_FILE
+
+    normalized = normalize_pet_id(pet_id)
+    found = loader.find_pet_dir(normalized) if normalized else None
+    if found is None:
+        raise HTTPException(status_code=404, detail="Unknown pet.")
+    folder, builtin = found
+    try:
+        manifest = loader.read_manifest(folder, builtin=builtin)
+    except PetManifestError as exc:
+        log.warning("pet %r shader not served: %s", normalized, exc)
+        raise HTTPException(status_code=404, detail="Unknown pet.") from exc
+    if manifest.kind != "shader":
+        raise HTTPException(status_code=404, detail="This pet is a sprite.")
+    return FileResponse(
+        str(folder / SHADER_FILE),
+        media_type="text/plain; charset=utf-8",
         headers={**_NOSNIFF, **(_REVALIDATE_CACHE if builtin else _IMMUTABLE_CACHE)},
     )
 
@@ -483,21 +561,42 @@ async def post_visibility(body: VisibilityBody, request: Request) -> dict[str, A
 
 @router.post("", status_code=201)
 async def create_pet(
-    sheet: UploadFile = File(...),  # noqa: B008 — FastAPI dependency default
+    sheet: UploadFile | None = File(None),  # noqa: B008 — FastAPI dependency default
+    shader: UploadFile | None = File(None),  # noqa: B008 — FastAPI dependency default
     name: str = Form(""),
     description: str = Form(""),
     manifest: str | None = Form(None),
     frame_size: str | None = Form(None),
 ) -> dict[str, Any]:
-    """Create a pet from an uploaded sprite sheet (and optional ``pet.json``).
+    """Create a pet from an uploaded sprite sheet or fragment shader.
 
     The sheet is read with a ceiling rather than whole — one byte over the
-    limit is enough for the store to refuse it. Every refusal is a 400 whose
-    detail is the store's own user-readable sentence.
+    limit is enough for the store to refuse it. A shader is the same, at
+    16 KB. Every refusal is a 400 whose detail is the store's own sentence.
     """
     from dodaios.ui.pets import loader
     from dodaios.ui.pets.manifest import MAX_SHEET_BYTES, PetManifestError
+    from dodaios.ui.pets.shader import MAX_SHADER_BYTES
     from dodaios.ui.pets.store import PetStore
+
+    store = PetStore(loader.custom_root())
+    if shader is not None and (shader.filename or ""):
+        raw = await shader.read(MAX_SHADER_BYTES + 1)
+        try:
+            source = raw.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise HTTPException(status_code=400, detail="The shader must be plain text.") from exc
+        try:
+            created = await asyncio.to_thread(
+                store.add_shader, source=source, name=name, description=description
+            )
+        except PetManifestError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        log.info("Shader pet %r created (%s).", created.id, created.name)
+        return _pet_json(created)
+
+    if sheet is None:
+        raise HTTPException(status_code=400, detail="Choose a sprite sheet or a shader.")
 
     size: int | None = None
     if frame_size is not None and frame_size.strip():
@@ -509,7 +608,6 @@ async def create_pet(
             ) from None
 
     data = await sheet.read(MAX_SHEET_BYTES + 1)
-    store = PetStore(loader.custom_root())
     try:
         created = await asyncio.to_thread(
             store.add,

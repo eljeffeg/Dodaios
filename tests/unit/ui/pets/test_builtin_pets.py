@@ -11,7 +11,7 @@ from types import ModuleType
 import pytest
 from PIL import Image
 
-from dodaios.ui.pets.loader import COLOR_KEY, builtin_root, list_pets, load_pet
+from dodaios.ui.pets.loader import COLOR_KEY, builtin_root, list_pets, load_pet, read_manifest
 from dodaios.ui.pets.states import DEFAULT_PET_ID, PET_STATES
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -63,7 +63,14 @@ def generated(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def test_the_builtin_pets_ship() -> None:
     ids = [m.id for m in list_pets() if m.builtin]
     assert ids[0] == DEFAULT_PET_ID
-    assert sorted(ids) == sorted(EXPECTED_PETS)
+    assert sorted(ids) == sorted((*EXPECTED_PETS, "energy-wave"))
+
+
+def test_energy_orb_is_a_shader_pack() -> None:
+    manifest = read_manifest(builtin_root() / "energy-wave", builtin=True)
+    assert manifest.kind == "shader"
+    assert manifest.shader == "shader.frag"
+    assert (builtin_root() / "energy-wave" / "shader.frag").is_file()
 
 
 @pytest.mark.parametrize("pet_id", EXPECTED_PETS)

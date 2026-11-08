@@ -1,0 +1,7 @@
+{
+  "format": "jarvis-shader-pet/1",
+  "id": "energy-wave",
+  "name": "Energy Wave",
+  "description": "Waves of light that speed up with the voice.",
+  "shader": "shader.frag"
+}

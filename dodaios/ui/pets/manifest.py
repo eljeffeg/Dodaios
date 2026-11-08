@@ -25,6 +25,7 @@ from dodaios.ui.pets.states import (
     ONE_SHOT_STATES,
     PET_FORMAT,
     PET_STATES,
+    SHADER_PET_FORMAT,
     STATE_FALLBACKS,
 )
 
@@ -100,6 +101,9 @@ class PetManifest:
     #: ``acts_sheet``. Optional; without them the pet just idles.
     acts: Mapping[str, AnimationSpec] = field(default_factory=lambda: MappingProxyType({}))
     acts_sheet: str | None = None
+    #: ``sprite`` is a sheet. ``shader`` is a fragment file and has no frames.
+    kind: str = "sprite"
+    shader: str | None = None
 
     def spec_for(self, state: str) -> tuple[str, AnimationSpec]:
         """Return ``(resolved_state, spec)`` for ``state``.
@@ -122,6 +126,14 @@ class PetManifest:
 
     def to_json(self) -> dict:
         """The ``pet.json`` shape (``builtin`` is not part of the file)."""
+        if self.kind == "shader":
+            return {
+                "format": SHADER_PET_FORMAT,
+                "id": self.id,
+                "name": self.name,
+                "description": self.description,
+                "shader": self.shader,
+            }
         out = {
             "format": PET_FORMAT,
             "id": self.id,
@@ -199,18 +211,8 @@ def _parse_animation(state: str, raw: object) -> AnimationSpec:
     )
 
 
-def parse_manifest(data: object, *, builtin: bool) -> PetManifest:
-    """Validate a decoded ``pet.json`` and return the manifest.
-
-    ``builtin`` selects the id rule: a built-in id is a short slug, a
-    user-created one is ``u`` plus 16 hex digits. Raises
-    :class:`PetManifestError` on the first broken rule.
-    """
-    if not isinstance(data, Mapping):
-        raise PetManifestError("pet.json must be a JSON object.")
-    if data.get("format") != PET_FORMAT:
-        raise PetManifestError(f'pet.json must declare "format": "{PET_FORMAT}".')
-
+def _identity(data: Mapping, *, builtin: bool) -> tuple[str, str, str]:
+    """The id, name and description shared by both pet formats."""
     pet_id = data.get("id")
     if not isinstance(pet_id, str) or pet_id == NO_PET_ID:
         raise PetManifestError("The pet id is missing or reserved.")
@@ -237,6 +239,45 @@ def parse_manifest(data: object, *, builtin: bool) -> PetManifest:
         raise PetManifestError(
             f"The description is longer than {MAX_DESCRIPTION_CHARS} characters."
         )
+    return pet_id, name, description
+
+
+def _parse_shader_manifest(data: Mapping, *, builtin: bool) -> PetManifest:
+    """A shader pet: a fragment file, no sheet and no animation rows."""
+    from dodaios.ui.pets.shader import SHADER_FILE
+
+    pet_id, name, description = _identity(data, builtin=builtin)
+    shader = data.get("shader", SHADER_FILE)
+    if not isinstance(shader, str) or shader != SHADER_FILE:
+        raise PetManifestError(f"'shader' must be '{SHADER_FILE}'.")
+    return PetManifest(
+        id=pet_id,
+        name=name,
+        description=description,
+        frame_size=0,
+        sheet="",
+        animations=MappingProxyType({}),
+        builtin=builtin,
+        kind="shader",
+        shader=shader,
+    )
+
+
+def parse_manifest(data: object, *, builtin: bool) -> PetManifest:
+    """Validate a decoded ``pet.json`` and return the manifest.
+
+    ``builtin`` selects the id rule: a built-in id is a short slug, a
+    user-created one is ``u`` plus 16 hex digits. Raises
+    :class:`PetManifestError` on the first broken rule.
+    """
+    if not isinstance(data, Mapping):
+        raise PetManifestError("pet.json must be a JSON object.")
+    if data.get("format") == SHADER_PET_FORMAT:
+        return _parse_shader_manifest(data, builtin=builtin)
+    if data.get("format") != PET_FORMAT:
+        raise PetManifestError(f'pet.json must declare "format": "{PET_FORMAT}".')
+
+    pet_id, name, description = _identity(data, builtin=builtin)
 
     frame_size = data.get("frame_size")
     if (

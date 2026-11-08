@@ -136,5 +136,39 @@ describe("fieldForDetail", () => {
     expect(fieldForDetail("description is longer than 140 characters")).toBe("description");
     expect(fieldForDetail("name must be 1-40 characters")).toBe("name");
     expect(fieldForDetail("not a PNG")).toBe("sheet");
+    expect(fieldForDetail("The shader cannot use 'sampler'.")).toBe("shader");
+  });
+});
+
+describe("a shader pet", () => {
+  it("uploads a fragment shader without a sprite sheet", async () => {
+    const created = {
+      id: "u0123456789abcdef",
+      name: "Tide",
+      description: "",
+      builtin: false,
+      kind: "shader" as const,
+      frame_size: 0,
+      animations: {},
+      sheet_url: "",
+      shader_url: "/api/pets/u0123456789abcdef/shader.frag",
+    };
+    const fetchSpy = vi.fn(async () => ({ ok: true, status: 201, json: async () => created }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const onCreated = renderDialog();
+
+    fireEvent.change(screen.getByTestId("create-pet-name"), { target: { value: "Tide" } });
+    fireEvent.change(screen.getByTestId("create-pet-shader"), {
+      target: {
+        files: [new File(["void main() { gl_FragColor = vec4(uTime, uState, 0.0, 1.0); }\n"], "tide.frag", { type: "text/plain" })],
+      },
+    });
+    expect(await screen.findByText("tide.frag")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("create-pet-submit"));
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(created));
+    const form = (fetchSpy.mock.calls[0] as unknown as [string, RequestInit])[1].body as FormData;
+    expect(form.get("shader")).toBeInstanceOf(File);
+    expect(form.get("sheet")).toBeNull();
   });
 });

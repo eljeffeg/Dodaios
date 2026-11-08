@@ -15,7 +15,9 @@ import {
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CreatePetDialog } from "@/components/pets/CreatePetDialog";
 import { PetControlStripPreview } from "@/components/pets/PetControlStripPreview";
+import { CubeCatPreview } from "@/components/pets/CubeCatStage";
 import { PetSprite, integerScaleFor } from "@/components/pets/PetSprite";
+import { ShaderPetMark, ShaderPetPreview } from "@/components/pets/ShaderPetPreview";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useKeybinds } from "@/hooks/useHotkey";
@@ -74,6 +76,16 @@ function useStateCycle(enabled: boolean): number {
   return index;
 }
 
+type PetGroup = "all" | "pixel" | "shader" | "model";
+
+function petGroup(pet: Pet): Exclude<PetGroup, "all"> {
+  if (pet.kind === "shader") return "shader";
+  if (pet.kind === "model") return "model";
+  return "pixel";
+}
+
+const PET_FILTERS: PetGroup[] = ["all", "pixel", "shader", "model"];
+
 export function PetsView() {
   const t = useT();
   const pushToast = useEventStore((s) => s.pushToast);
@@ -90,12 +102,19 @@ export function PetsView() {
   const [pendingDelete, setPendingDelete] = useState<Pet | null>(null);
   const [switchingStyle, setSwitchingStyle] = useState(false);
   const [needsRestart, setNeedsRestart] = useState(false);
+  const [kindFilter, setKindFilter] = useState<PetGroup>("all");
+  const reduced = useReducedMotion() ?? false;
 
   const data = pets.data;
   const activePet =
     data && data.active !== NO_PET_ID
       ? data.pets.find((pet) => pet.id === data.active) ?? null
       : null;
+  const stateIndex = useStateCycle(Boolean(activePet) && !reduced);
+  const state = PET_STATES[stateIndex];
+  const shownPets = (data?.pets ?? []).filter(
+    (pet) => kindFilter === "all" || petGroup(pet) === kindFilter,
+  );
   const styleIsPet = overlay.config?.style === "pet";
   const shortcut = keybinds.config?.keybinds?.pet_toggle ?? "";
 
@@ -262,6 +281,8 @@ export function PetsView() {
           <>
             <ActivePetCard
               pet={activePet}
+              state={state}
+              reduced={reduced}
               loading={!data}
               description={activePet ? describe(activePet) : t("pets.none_description")}
               customizeOpen={customizeOpen}
@@ -279,17 +300,43 @@ export function PetsView() {
 
             <div className="mb-3 mt-8 flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-foreground-strong">{t("pets.my_pets")}</h2>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                data-testid="pets-create"
-                disabled={!data}
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus aria-hidden />
-                {t("pets.create")}
-              </Button>
+              <div className="flex items-center gap-2">
+                <div
+                  role="radiogroup"
+                  aria-label={t("pets.filter_label")}
+                  className="flex rounded-lg border border-border bg-card p-0.5"
+                >
+                  {PET_FILTERS.map((group) => (
+                    <button
+                      key={group}
+                      type="button"
+                      role="radio"
+                      aria-checked={kindFilter === group}
+                      data-testid={`pets-filter-${group}`}
+                      onClick={() => setKindFilter(group)}
+                      className={cn(
+                        "rounded-md px-2.5 py-1 text-sm",
+                        kindFilter === group
+                          ? "bg-accent/15 text-foreground"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {t(`pets.filter_${group}`)}
+                    </button>
+                  ))}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  data-testid="pets-create"
+                  disabled={!data}
+                  onClick={() => setCreateOpen(true)}
+                >
+                  <Plus aria-hidden />
+                  {t("pets.create")}
+                </Button>
+              </div>
             </div>
 
             <ul
@@ -306,6 +353,7 @@ export function PetsView() {
                 ))
               ) : (
                 <>
+                  {kindFilter === "all" && (
                   <li>
                     <PetTile
                       id={NO_PET_ID}
@@ -319,7 +367,8 @@ export function PetsView() {
                       <PetControlStripPreview size="sm" companion />
                     </PetTile>
                   </li>
-                  {data.pets.map((pet) => (
+                  )}
+                  {shownPets.map((pet) => (
                     <li key={pet.id}>
                       <PetTile
                         id={pet.id}
@@ -332,11 +381,27 @@ export function PetsView() {
                         onDelete={pet.builtin ? undefined : () => setPendingDelete(pet)}
                         deleteLabel={t("pets.delete_named").replace("{0}", pet.name)}
                       >
-                        <PetSprite
-                          pet={pet}
-                          state="idle"
-                          scale={integerScaleFor(pet.frame_size, TILE_SPRITE_PX)}
-                        />
+                        {pet.kind === "shader" && pet.shader_url ? (
+                          <div className="h-24 w-24">
+                            <ShaderPetPreview
+                              url={pet.shader_url}
+                              state={data.active === pet.id ? state : "idle"}
+                              reduced={reduced}
+                            />
+                          </div>
+                        ) : pet.kind === "model" ? (
+                          <div className="h-24 w-24">
+                            <CubeCatPreview state={data.active === pet.id ? state : "idle"} reduced={reduced} />
+                          </div>
+                        ) : pet.kind === "shader" ? (
+                          <ShaderPetMark className="h-24 w-24" />
+                        ) : (
+                          <PetSprite
+                            pet={pet}
+                            state="idle"
+                            scale={integerScaleFor(pet.frame_size, TILE_SPRITE_PX)}
+                          />
+                        )}
                       </PetTile>
                     </li>
                   ))}
@@ -345,6 +410,7 @@ export function PetsView() {
             </ul>
           </>
         )}
+
       </div>
 
       <CreatePetDialog
@@ -368,6 +434,8 @@ export function PetsView() {
 
 function ActivePetCard({
   pet,
+  state,
+  reduced,
   loading,
   description,
   customizeOpen,
@@ -375,6 +443,8 @@ function ActivePetCard({
   children,
 }: {
   pet: Pet | null;
+  state: (typeof PET_STATES)[number];
+  reduced: boolean;
   loading: boolean;
   description: string;
   customizeOpen: boolean;
@@ -382,9 +452,6 @@ function ActivePetCard({
   children?: React.ReactNode;
 }) {
   const t = useT();
-  const reduced = useReducedMotion() ?? false;
-  const stateIndex = useStateCycle(Boolean(pet) && !reduced);
-  const state = PET_STATES[stateIndex];
   const stateLabel = t(`pets.states.${state}`);
 
   return (
@@ -397,6 +464,10 @@ function ActivePetCard({
         <div className="grid h-[180px] w-full place-items-center">
           {loading ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+          ) : pet?.kind === "model" ? (
+            <CubeCatPreview state={state} reduced={reduced} />
+          ) : pet?.kind === "shader" && pet.shader_url ? (
+            <ShaderPetPreview url={pet.shader_url} state={state} reduced={reduced} />
           ) : pet ? (
             <PetSprite
               pet={pet}
@@ -415,6 +486,11 @@ function ActivePetCard({
           >
             {stateLabel}
           </span>
+        )}
+        {pet?.kind === "shader" && (
+          <p data-testid="pets-shader-note" className="max-w-[260px] text-center text-xs text-muted-foreground">
+            {t("pets.shader_note")}
+          </p>
         )}
         <PetControlStripPreview companion />
       </div>

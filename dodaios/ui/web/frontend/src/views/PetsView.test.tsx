@@ -38,7 +38,26 @@ function stubServer({ style = "pet" }: { style?: string } = {}) {
     strip_always: false,
     visible: true,
     style,
-    pets: [pet("gigi", "Gigi", true), pet("miso", "Miso", true), pet("u0123456789abcdef", "Pixel", false)],
+    pets: [
+      pet("gigi", "Gigi", true),
+      pet("miso", "Miso", true),
+      {
+        ...pet("energy-wave", "Energy Orb", true),
+        kind: "shader" as const,
+        frame_size: 0,
+        sheet_url: "",
+        shader_url: "/api/pets/energy-wave/shader.frag",
+        animations: {},
+      },
+      {
+        ...pet("cube-cat", "Cube Cat", true),
+        kind: "model" as const,
+        frame_size: 0,
+        sheet_url: "",
+        animations: {},
+      },
+      pet("u0123456789abcdef", "Pixel", false),
+    ],
   };
   const calls: Call[] = [];
   const json = (body: unknown, status = 200) => ({
@@ -136,6 +155,9 @@ describe("PetsView", () => {
     expect(screen.getByTestId("pet-tile-miso").getAttribute("aria-pressed")).toBe("false");
     // Built-in copy comes from the locale, a custom pet keeps its own text.
     expect(within(grid).getByText("A cat: ears up while listening, curls up to sleep.")).toBeTruthy();
+    expect(screen.getByTestId("pets-filter-all").getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByTestId("energy-wave-stage")).toBeNull();
+    expect(screen.queryByTestId("cube-cat-stage")).toBeNull();
     expect(within(grid).getByText("Pixel from the API")).toBeTruthy();
   });
 
@@ -143,6 +165,50 @@ describe("PetsView", () => {
     stubServer();
     renderView();
     expect(await screen.findByText(/Press Alt \+ Win \+ P to hide or show it\./)).toBeTruthy();
+  });
+
+  it("selects the energy orb and the cube cat from the grid", async () => {
+    const { calls } = stubServer();
+    renderView();
+
+    fireEvent.click(await screen.findByTestId("pet-tile-energy-wave"));
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: "PUT",
+        url: "/api/pets/active",
+        body: { pet_id: "energy-wave" },
+      }),
+    );
+    expect(screen.getAllByTestId("shader-pet-preview").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Waves of light that speed up with the voice.").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByTestId("pet-tile-cube-cat"));
+    await waitFor(() =>
+      expect(screen.getByTestId("pet-tile-cube-cat").getAttribute("aria-pressed")).toBe("true"),
+    );
+    const cats = screen.getAllByTestId("cube-cat-preview");
+    expect(cats.length).toBeGreaterThan(0);
+    expect(cats.every((node) => node.getAttribute("data-clip") === "idle")).toBe(true);
+  });
+
+  it("filters the grid by pixels, shaders and models", async () => {
+    stubServer();
+    renderView();
+    await screen.findByTestId("pet-tile-gigi");
+
+    fireEvent.click(screen.getByTestId("pets-filter-shader"));
+    expect(screen.getByTestId("pet-tile-energy-wave")).toBeTruthy();
+    expect(screen.queryByTestId("pet-tile-gigi")).toBeNull();
+    expect(screen.queryByTestId("pet-tile-cube-cat")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("pets-filter-model"));
+    expect(screen.getByTestId("pet-tile-cube-cat")).toBeTruthy();
+    expect(screen.queryByTestId("pet-tile-energy-wave")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("pets-filter-pixel"));
+    expect(screen.getByTestId("pet-tile-gigi")).toBeTruthy();
+    expect(screen.queryByTestId("pet-tile-energy-wave")).toBeNull();
+    expect(screen.queryByTestId("pet-tile-none")).toBeNull();
   });
 
   it("selects a pet with one click", async () => {

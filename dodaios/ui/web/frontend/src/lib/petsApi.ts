@@ -12,10 +12,14 @@ export interface Pet {
   name: string;
   description: string;
   builtin: boolean;
+  /** A shader pet draws a fragment file. The orb and the cube cat are built in. Absent means a sprite. */
+  kind?: "sprite" | "shader" | "model";
   frame_size: number;
   /** Keyed by pet state; a custom pet may leave states out (see STATE_FALLBACKS). */
   animations: Partial<Record<string, PetAnimation>>;
   sheet_url: string;
+  /** Set for a shader pet: the fragment source. */
+  shader_url?: string;
 }
 
 export interface PetsState {
@@ -36,7 +40,9 @@ export interface PetSettingsPatch {
 }
 
 export interface CreatePetInput {
-  sheet: File;
+  sheet?: File | null;
+  /** A fragment shader. When set, this pet is a shader pet and the sheet is ignored. */
+  shader?: File | null;
   name: string;
   description: string;
   frameSize?: number;
@@ -109,7 +115,8 @@ export function setPetVisible(visible: boolean): Promise<unknown> {
 
 export function createPet(input: CreatePetInput): Promise<Pet> {
   const form = new FormData();
-  form.append("sheet", input.sheet);
+  if (input.shader) form.append("shader", input.shader);
+  else if (input.sheet) form.append("sheet", input.sheet);
   form.append("name", input.name);
   form.append("description", input.description);
   if (input.frameSize) form.append("frame_size", String(input.frameSize));

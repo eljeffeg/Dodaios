@@ -363,6 +363,14 @@ def _trusted_hostnames(
     return frozenset(result)
 
 
+def _expand_loopback_origin(origin: Origin) -> set[Origin]:
+    """localhost, 127.0.0.1 and ::1 name this machine. Other hosts stay exact."""
+    scheme, host, port = origin
+    if host not in _LOOPBACK_HOSTS:
+        return {origin}
+    return {(scheme, alias, port) for alias in _LOOPBACK_HOSTS}
+
+
 def _trusted_origin_values(
     *,
     trusted_origins: str | Iterable[str] | None = None,
@@ -377,7 +385,7 @@ def _trusted_origin_values(
     ):
         origin = _parse_origin(item)
         if origin is not None:
-            result.add(origin)
+            result.update(_expand_loopback_origin(origin))
     return frozenset(result)
 
 

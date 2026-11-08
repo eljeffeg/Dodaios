@@ -69,7 +69,13 @@ from dodaios.core.config import DEFAULT_CONFIG_FILE as JARVIS_TOML_PATH
 from dodaios.core.win32_dpi import ensure_dpi_awareness as _ensure_dpi_awareness
 from dodaios.ui.dodaiosbar.modes import ACTIVE_VOICE_MODES, MODES
 from dodaios.ui.overlay_styles import LEGACY_STYLE_ALIASES, MASCOT_PET_ID, ORB_STYLES
-from dodaios.ui.pets.states import ACTION_STATES, DEFAULT_PET_ID, NO_PET_ID, ONE_SHOT_STATES
+from dodaios.ui.pets.states import (
+    ACTION_STATES,
+    DEFAULT_PET_ID,
+    NO_PET_ID,
+    ONE_SHOT_STATES,
+    PET_STATES,
+)
 from ui.orb import controls as orb_controls
 from ui.orb.animations import (
     ANIMATION_REGISTRY,
@@ -92,6 +98,7 @@ from ui.orb.drag_persistence import (
 )
 from ui.orb.notice_stack import PetNoticeStack
 from ui.orb.pet_renderer import PET_TARGET_EDGE_PX, PetRenderer, dpi_ratio_for
+from ui.orb.shader_host import ShaderFigureHost
 from ui.orb.taskbar import (
     MascotAnchor,
     compute_mascot_position,
@@ -1258,6 +1265,8 @@ class OrbCommentBubble:
 
     def _build(self) -> None:
         top = tk.Toplevel(self._parent)
+        # Not "JarvisOrb": that title is the figure, which a shader pet hides.
+        top.title("JarvisOrbBubble")
         top.overrideredirect(True)
         top.wm_attributes("-topmost", True)
         # Same per-platform transparency split as the main orb root: macOS
@@ -1765,6 +1774,8 @@ class OrbControlRow:
 
     def _build(self) -> None:
         top = tk.Toplevel(self._parent)
+        # Not "JarvisOrb": that title is the figure, which a shader pet hides.
+        top.title("JarvisOrbStrip")
         top.overrideredirect(True)
         top.wm_attributes("-topmost", True)
         self._mac_transparent = False
@@ -2314,6 +2325,12 @@ class OrbOverlay:
         self._mic_muted = False
         #: Hidden by the shortcut or the settings page — lasts until restart.
         self._user_hidden = False
+        #: The shader figure's process. None until a shader pet is shown.
+        self._shader_host: ShaderFigureHost | None = None
+        #: The figure window is dragging itself; the Tk window must not fight it.
+        self._shader_dragging = False
+        #: The Tk figure window is click-through and fully clear (macOS shader pet).
+        self._figure_passthrough = False
         self._on_compose: Callable[[], None] | None = None
         #: The bell: notifications show (True) or stay quiet. Runtime only,
         #: like the speaker mute — a silenced bell forgotten overnight would
@@ -2737,6 +2754,7 @@ class OrbOverlay:
         if self._controls is not None:
             self._controls.update_anchor(x, y)
         self._sync_notice_anchor(refresh_limit=False)
+        self._sync_shader_figure()
 
     def _read_dpi_ratio(self) -> float:
         """The monitor's display scale as Tk sees it (1.0 at 100 %)."""
@@ -3681,6 +3699,7 @@ class OrbOverlay:
                 self._root.withdraw()
             except tk.TclError:
                 logging.getLogger("jarvis.orb").debug("orb withdraw failed", exc_info=True)
+        self._sync_shader_figure()
 
     def stop(self) -> None:
         """Tear the mascot overlay down at runtime (live display-style swap).
@@ -3693,6 +3712,10 @@ class OrbOverlay:
         teardown hiccup never propagates.
         """
         self._running = False
+        host = self._shader_host
+        self._shader_host = None
+        if host is not None:
+            host.close()
         root = self._root
         if root is None:
             return
@@ -4613,6 +4636,7 @@ class OrbOverlay:
         if not self._running or not self._root or not self._canvas or not self._renderer:
             return
         if not self._window_mapped():
+            self._sync_shader_figure()
             return
         delay_ms = FRAME_INTERVAL_MS
         try:
@@ -4622,6 +4646,7 @@ class OrbOverlay:
                 self._frame_error_logged = True
                 logging.getLogger("jarvis.orb").exception("orb frame failed; animation continues")
         finally:
+            self._sync_shader_figure()
             self._arm_frame(delay_ms)
 
     def _paint_frame(self) -> int:
@@ -4652,6 +4677,8 @@ class OrbOverlay:
 
     def _paint_keyed_frame(self, renderer: Any, t: float, key: Hashable) -> int:
         """The pet's path: repaint only when the frame changes, sleep until it does."""
+        # Before the photo, so a shader's clear Tk window is already click-through.
+        self._sync_shader_figure()
         if key != self._frame_key or self._image_id is None:
             cache = self._photo_cache
             photo = cache.get(key)
@@ -4678,6 +4705,124 @@ class OrbOverlay:
             pulse_ms = PET_CONNECT_INTERVAL_MS if connecting else PET_PULSE_INTERVAL_MS
             delay_ms = min(delay_ms, pulse_ms)
         return delay_ms
+
+    def _sync_shader_figure(self) -> None:
+        """Keep the shader figure on the pet, or hide it when a sprite is showing."""
+        if not self._running:
+            return
+        renderer = self._renderer
+        source: str | None = None
+        state = 0
+        if self._style == "pet" and isinstance(renderer, PetRenderer):
+            source = renderer.shader_source
+            if source:
+                try:
+                    state = PET_STATES.index(renderer.state())
+                except ValueError:
+                    state = 0
+        shown = bool(source) and not self._user_hidden and self._window_mapped()
+        if not shown and self._shader_host is None:
+            self._set_figure_passthrough(False)
+            return
+        if shown and self._shader_host is None:
+            self._shader_host = ShaderFigureHost(self._on_shader_event)
+        host = self._shader_host
+        if host is None:
+            return
+        # The Tk window would paint a grey box over this figure on macOS, and
+        # its rectangle would take the clicks the clear pixels must let through.
+        self._set_figure_passthrough(shown and sys.platform == "darwin")
+        host.sync(
+            source=source if shown else None,
+            x=self._mascot_x,
+            y=self._mascot_y,
+            w=self._win_w,
+            h=self._win_h,
+            state=state,
+            shown=shown,
+            dragging=self._shader_dragging,
+            level=renderer.voice_level() if isinstance(renderer, PetRenderer) else 0.0,
+        )
+
+    def _set_figure_passthrough(self, passthrough: bool) -> None:
+        """macOS: the Tk figure stays for the strip's anchor, but it must not be seen or clicked.
+
+        Tk 9's ``winfo_id`` is not an NSView. Wrapping that integer as one
+        bus-errors the host. The figure is the window titled JarvisOrb; the
+        strip, bubble and cards use other titles.
+        """
+        if (
+            sys.platform != "darwin"
+            or self._root is None
+            or self._figure_passthrough == passthrough
+        ):
+            return
+        try:
+            from AppKit import NSApp  # type: ignore[import-not-found]
+        except Exception:  # noqa: BLE001 — the grey box is the degrade
+            logging.getLogger("jarvis.orb").debug(
+                "shader figure passthrough unavailable", exc_info=True
+            )
+            return
+        found = False
+        try:
+            for win in list(NSApp.windows()):
+                if str(win.title()) != "JarvisOrb":
+                    continue
+                found = True
+                win.setIgnoresMouseEvents_(passthrough)
+                win.setAlphaValue_(0.0 if passthrough else 1.0)
+        except Exception:  # noqa: BLE001 — the figure still shows; the box is the degrade
+            logging.getLogger("jarvis.orb").debug("shader figure passthrough failed", exc_info=True)
+            return
+        if found:
+            self._figure_passthrough = passthrough
+
+    def _on_shader_event(self, event: dict[str, Any]) -> None:
+        """The figure process reports a drag or a click. It is not the Tk thread."""
+        self._enqueue_ui(lambda event=event: self._apply_shader_event(event))
+
+    def _apply_shader_event(self, event: dict[str, Any]) -> None:
+        op = str(event.get("op") or "")
+        if op == "hover":
+            if event.get("inside"):
+                self._on_orb_pointer_enter(None)
+            else:
+                self._on_orb_pointer_leave(None)
+            return
+        if op == "menu":
+            from types import SimpleNamespace
+
+            self._on_right_click(
+                SimpleNamespace(x_root=int(event.get("x") or 0), y_root=int(event.get("y") or 0))
+            )
+            return
+        if op == "mute":
+            self._on_mute_double_click(None)
+            return
+        if op == "move":
+            if self._root is None:
+                return
+            x, y = int(event.get("x") or 0), int(event.get("y") or 0)
+            first = not self._shader_dragging
+            self._shader_dragging = True
+            self._mascot_x = x
+            self._mascot_y = y
+            try:
+                self._root.geometry(f"{self._win_w}x{self._win_h}+{x}+{y}")
+                screen_w = self._root.winfo_screenwidth()
+            except tk.TclError:
+                return
+            self._move_attached(x, y, screen_w)
+            if first:
+                self._drag_state = _DragState(x, y, 0, 0, moved=True)
+                self._apply_pet_feed("on_held", True)
+            return
+        if op == "drop":
+            self._shader_dragging = False
+            if self._drag_state is None:
+                self._drag_state = _DragState(0, 0, 0, 0, moved=True)
+            self._on_drag_release(None)
 
     def _show_photo(self, photo: Any) -> None:
         if self._image_id is None:

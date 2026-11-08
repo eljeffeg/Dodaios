@@ -9317,8 +9317,8 @@
   },
   "pets": {
     "title": "Os meus Pets",
-    "subtitle": "Um pequeno companheiro pixelizado que flutua no teu ambiente de trabalho e reage enquanto {name} ouve, pensa e fala. Prime {0} para o ocultar ou mostrar.",
-    "subtitle_no_shortcut": "Um pequeno companheiro pixelizado que flutua no teu ambiente de trabalho e reage enquanto {name} ouve, pensa e fala. Define um atalho em Personalizar para o ocultar ou mostrar.",
+    "subtitle": "Um pequeno companheiro que flutua no teu ambiente de trabalho e reage enquanto {name} ouve, pensa e fala. Prime {0} para o ocultar ou mostrar.",
+    "subtitle_no_shortcut": "Um pequeno companheiro que flutua no teu ambiente de trabalho e reage enquanto {name} ouve, pensa e fala. Define um atalho em Personalizar para o ocultar ou mostrar.",
     "hide": "Ocultar pet",
     "show": "Mostrar pet",
     "open_settings": "Escolher o teu pet",
@@ -9342,6 +9342,11 @@
     "shortcut_hint": "Oculta o pet ou volta a trazê-lo para a frente.",
     "my_pets": "Os meus pets",
     "create": "Criar pet",
+    "filter_label": "Mostrar",
+    "filter_all": "Todos",
+    "filter_pixel": "Pixels",
+    "filter_shader": "Shaders",
+    "filter_model": "Modelos",
     "created": "{0} está pronto.",
     "none_name": "Nenhum",
     "none_description": "Apenas a barra de controlo",
@@ -9362,6 +9367,29 @@
       "working": "A trabalhar",
       "searching": "A procurar",
       "held": "A ser transportado"
+    },
+    "energy_orb": {
+      "title": "Orbe de energia",
+      "short": "Orbe",
+      "body": "Um orbe suave de luz fluida. Cada estado tem o seu próprio padrão, desenhado por um shader, por isso fica nítido em qualquer tamanho.",
+      "states_label": "Estado"
+    },
+    "shader_note": "Este shader aparece no ambiente de trabalho, aqui e num companheiro do Verse.",
+    "cube_cat": {
+      "title": "Gato de cubos",
+      "short": "Gato",
+      "body": "Um gato de blocos que corre no lugar, para experimentar um animal 3D vivo ao lado dos de píxeis.",
+      "clips_label": "Animação",
+      "clips": {
+        "run": "Correr",
+        "walk": "Andar",
+        "idle": "Parado",
+        "static": "Fixo",
+        "eat": "Comer",
+        "dance": "Dançar",
+        "gesture-positive": "Sim",
+        "gesture-negative": "Não"
+      }
     },
     "builtin": {
       "gigi": {
@@ -9390,11 +9418,17 @@
       },
       "dodaios": {
         "description": "A figura encapuzada do logótipo: a ponta do capuz levanta-se para ouvir e a capa voa num salto."
+      },
+      "energy-wave": {
+        "description": "Ondas de luz que aceleram com a voz."
+      },
+      "cube-cat": {
+        "description": "Um gato de cubos que corre no lugar."
       }
     },
     "create_dialog": {
       "title": "Criar pet",
-      "description": "Carrega uma sprite sheet, dá um nome ao teu pet e ele junta-se aos teus pets.",
+      "description": "Carrega uma sprite sheet ou um shader de fragmento, dá um nome ao teu pet e ele junta-se aos teus pets.",
       "name_label": "Nome",
       "name_placeholder": "Por exemplo: Pixel",
       "description_label": "Descrição",
@@ -9413,8 +9447,13 @@
       "manifest_hint": "Um pet.json define os frames, a velocidade e o ciclo de cada linha. Sem ele, as linhas são lidas pela ordem acima e os frames de cada linha são contados.",
       "manifest_choose": "Adicionar pet.json",
       "manifest_remove": "Remover",
+      "shader_label": "Shader de fragmento",
+      "shader_hint": "Um ficheiro .frag ou .glsl, até 16 KB. Escreve gl_FragColor. uTime, uState, uStateFrom, uBlend e uLevel já estão declarados. uState vai de 0 a 9, na ordem dos estados, e uma mudança mistura os dois aspetos. uLevel vai de 0 a 1: a voz do assistente ao falar, o microfone ao ouvir, e 0 nos outros casos.",
+      "shader_choose": "Escolher shader",
+      "shader_change": "Escolher outro",
+      "shader_type": "Escolhe um ficheiro .frag ou .glsl.",
       "error_name": "Dá um nome ao teu pet.",
-      "error_no_sheet": "Escolhe uma sprite sheet.",
+      "error_no_sheet": "Escolhe uma sprite sheet ou um shader.",
       "error_not_png": "Escolhe uma imagem PNG.",
       "error_too_big": "Esta imagem tem mais de 2 MB.",
       "error_manifest": "O manifesto tem de ser um ficheiro .json.",

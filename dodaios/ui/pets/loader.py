@@ -134,6 +134,9 @@ def read_manifest(pet_dir: Path, *, builtin: bool) -> PetManifest:
         raise PetManifestError(
             f"pet.json names the id '{manifest.id}' but its folder is '{pet_dir.name}'."
         )
+    if manifest.kind == "shader":
+        _check_shader_file(pet_dir, manifest.shader or "")
+        return manifest
     check_cells(manifest, *_probe_png(pet_dir / manifest.sheet, manifest.sheet))
     if manifest.acts and manifest.acts_sheet is not None:
         check_act_cells(manifest, *_probe_png(pet_dir / manifest.acts_sheet, manifest.acts_sheet))
@@ -174,10 +177,28 @@ def normalize_sheet(image: Image.Image) -> Image.Image:
     return clean
 
 
+def _check_shader_file(pet_dir: Path, name: str) -> None:
+    """The fragment file is present and passes the shader rules."""
+    from dodaios.ui.pets.shader import check_shader_source
+
+    path = pet_dir / name
+    try:
+        source = path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise PetManifestError(f"The shader '{name}' is missing.") from exc
+    except (OSError, UnicodeDecodeError) as exc:
+        raise PetManifestError("The shader could not be read as text.") from exc
+    check_shader_source(source)
+
+
 def load_pet(pet_dir: Path, *, builtin: bool) -> PetPack:
     """Load and decode the pet in ``pet_dir``. Raises :class:`PetManifestError`."""
     pet_dir = Path(pet_dir)
     manifest = read_manifest(pet_dir, builtin=builtin)
+    if manifest.kind == "shader":
+        # Sprite frames only. The desktop figure is ui.orb.shader_desktop;
+        # PetRenderer.load reads the fragment and never asks for this sheet.
+        raise PetManifestError("A shader pet has no sprite sheet.")
     sheet = _decode(pet_dir / manifest.sheet)
     size = manifest.frame_size
     by_row: dict[str, tuple[Image.Image, ...]] = {}
