@@ -9368,28 +9368,10 @@
       "searching": "搜索中",
       "held": "被拎着"
     },
-    "energy_orb": {
-      "title": "能量光球",
-      "short": "光球",
-      "body": "一颗平滑流动的光球。每种状态各有一种图案，由着色器绘制，任何大小都保持清晰。",
-      "states_label": "状态"
-    },
     "shader_note": "这段着色器会在桌面、这里以及 Verse 里的同伴身上播放。",
     "cube_cat": {
       "title": "方块猫",
-      "short": "猫",
-      "body": "一只在原地奔跑的方块猫，用来在像素宠物旁边试一只会动的立体宠物。",
-      "clips_label": "动画",
-      "clips": {
-        "run": "奔跑",
-        "walk": "行走",
-        "idle": "待机",
-        "static": "静止",
-        "eat": "吃",
-        "dance": "跳舞",
-        "gesture-positive": "赞同",
-        "gesture-negative": "反对"
-      }
+      "short": "猫"
     },
     "builtin": {
       "gigi": {
